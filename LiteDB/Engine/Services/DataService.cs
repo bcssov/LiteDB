@@ -30,7 +30,7 @@ namespace LiteDB.Engine
         {
             var bytesLeft = doc.GetBytesCount(true);
 
-            if (bytesLeft > MAX_DOCUMENT_SIZE) throw new LiteException(0, "Document size exceed {0} limit", MAX_DOCUMENT_SIZE);
+            //if (bytesLeft > MAX_DOCUMENT_SIZE) throw new LiteException(0, "Document size exceed {0} limit", MAX_DOCUMENT_SIZE);
 
             var firstBlock = PageAddress.Empty;
 
@@ -81,7 +81,7 @@ namespace LiteDB.Engine
         {
             var bytesLeft = doc.GetBytesCount(true);
 
-            if (bytesLeft > MAX_DOCUMENT_SIZE) throw new LiteException(0, "Document size exceed {0} limit", MAX_DOCUMENT_SIZE);
+            //if (bytesLeft > MAX_DOCUMENT_SIZE) throw new LiteException(0, "Document size exceed {0} limit", MAX_DOCUMENT_SIZE);
 
             DataBlock lastBlock = null;
             var updateAddress = blockAddress;
