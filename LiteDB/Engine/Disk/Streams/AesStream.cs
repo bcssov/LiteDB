@@ -15,11 +15,14 @@ namespace LiteDB.Engine
         private readonly ICryptoTransform _encryptor;
         private readonly ICryptoTransform _decryptor;
 
+        private readonly string _name;
         private readonly Stream _stream;
         private readonly CryptoStream _reader;
         private readonly CryptoStream _writer;
 
         private readonly byte[] _decryptedZeroes = new byte[16];
+
+        private static readonly byte[] _emptyContent = new byte[PAGE_SIZE - 1 - 16]; // 1 for aes indicator + 16 for salt 
 
         public byte[] Salt { get; }
 
@@ -42,8 +45,12 @@ namespace LiteDB.Engine
         public AesStream(string password, Stream stream)
         {
             _stream = stream;
+            _name = _stream is FileStream fileStream ? Path.GetFileName(fileStream.Name) : null;
 
-            var isNew = _stream.Length == 0;
+            var isNew = _stream.Length < PAGE_SIZE;
+
+            // start stream from zero position
+            _stream.Position = 0;
 
             try
             {
@@ -55,6 +62,9 @@ namespace LiteDB.Engine
                     // first byte =1 means this datafile is encrypted
                     _stream.WriteByte(1);
                     _stream.Write(this.Salt, 0, ENCRYPTION_SALT_SIZE);
+
+                    // fill with 0 full PAGE_SIZE
+                    _stream.Write(_emptyContent, 0, _emptyContent.Length);
                 }
                 else
                 {
@@ -143,7 +153,7 @@ namespace LiteDB.Engine
         public override int Read(byte[] array, int offset, int count)
         {
             ENSURE(count == PAGE_SIZE, "buffer size must be PAGE_SIZE");
-            ENSURE(this.Position % PAGE_SIZE == 0, "position must be in PAGE_SIZE module");
+            ENSURE(this.Position % PAGE_SIZE == 0, $"AesRead: position must be in PAGE_SIZE module. Position={this.Position}, File={_name}");
 
             var r = _reader.Read(array, offset, count);
 
@@ -164,7 +174,7 @@ namespace LiteDB.Engine
         public override void Write(byte[] array, int offset, int count)
         {
             ENSURE(count == PAGE_SIZE, "buffer size must be PAGE_SIZE");
-            ENSURE(this.Position % PAGE_SIZE == 0, "position must be in PAGE_SIZE module");
+            ENSURE(this.Position % PAGE_SIZE == 0, $"AesWrite: position must be in PAGE_SIZE module. Position={this.Position}, File={_name}");
 
             _writer.Write(array, offset, count);
         }

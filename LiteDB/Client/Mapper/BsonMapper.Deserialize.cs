@@ -167,9 +167,24 @@ namespace LiteDB
                 // test if value is object and has _type
                 if (doc.TryGetValue("_type", out var typeField) && typeField.IsString)
                 {
-                    type = _typeNameBinder.GetType(typeField.AsString);
+                    var actualType = _typeNameBinder.GetType(typeField.AsString);
 
-                    if (type == null) throw LiteException.InvalidTypedName(typeField.AsString);
+                    if (actualType == null) throw LiteException.InvalidTypedName(typeField.AsString);
+
+                    // avoid initialize class that are not assignable 
+                    if (!type.IsAssignableFrom(actualType))
+                    {
+                        throw LiteException.DataTypeNotAssignable(type.FullName, actualType.FullName);
+                    }
+
+                    // avoid use of "System.Diagnostics.Process" in object type definition
+                    // using String test to work in .netstandard 1.3
+                    if (actualType.FullName.Equals("System.Diagnostics.Process", StringComparison.OrdinalIgnoreCase))
+                    {
+                        throw LiteException.AvoidUseOfProcess();
+                    }
+
+                    type = actualType;
                 }
                 // when complex type has no definition (== typeof(object)) use Dictionary<string, object> to better set values
                 else if (type == typeof(object))
