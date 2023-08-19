@@ -30,7 +30,7 @@ namespace LiteDB
         /// </summary>
         public static void WriteLength(BsonType type, ushort length, out byte typeByte, out byte lengthByte)
         {
-            if (length > 1023) throw new ArgumentOutOfRangeException(nameof(length));
+            if (length > MAX_INDEX_KEY_LENGTH) throw new ArgumentOutOfRangeException(nameof(length));
             var bsonType = (byte)type;
             var lengthLSByte = unchecked((byte)length);
             var lengthMSByte = (byte)((length & 0b11_0000_0000) >> 2);
