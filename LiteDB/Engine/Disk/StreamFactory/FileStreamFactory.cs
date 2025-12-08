@@ -17,13 +17,15 @@ namespace LiteDB.Engine
         private readonly string _password;
         private readonly bool _readonly;
         private readonly bool _hidden;
+        private readonly bool _useAesStream;
 
-        public FileStreamFactory(string filename, string password, bool readOnly, bool hidden)
+        public FileStreamFactory(string filename, string password, bool readOnly, bool hidden, bool useAesStream = true)
         {
             _filename = filename;
             _password = password;
             _readonly = readOnly;
             _hidden = hidden;
+            _useAesStream = useAesStream;
         }
 
         /// <summary>
@@ -38,22 +40,26 @@ namespace LiteDB.Engine
         {
             var write = canWrite && (_readonly == false);
 
+            var fileMode = _readonly ? System.IO.FileMode.Open : System.IO.FileMode.OpenOrCreate;
+            var fileAccess = write ? FileAccess.ReadWrite : FileAccess.Read;
+            var fileShare = write ? FileShare.Read : FileShare.ReadWrite;
+            var fileOptions = sequencial ? FileOptions.SequentialScan : FileOptions.RandomAccess;
+
             var isNewFile = write && this.Exists() == false;
 
-            var stream = new FileStream(
-                _filename,
-                _readonly ? System.IO.FileMode.Open : System.IO.FileMode.OpenOrCreate,
-                write ? FileAccess.ReadWrite : FileAccess.Read,
-                write ? FileShare.Read : FileShare.ReadWrite,
+            var stream = new FileStream(_filename,
+                fileMode,
+                fileAccess,
+                fileShare,
                 PAGE_SIZE,
-                sequencial ? FileOptions.SequentialScan : FileOptions.RandomAccess);
+                fileOptions);
 
             if (isNewFile && _hidden)
             {
                 File.SetAttributes(_filename, FileAttributes.Hidden);
             }
 
-            return _password == null ? (Stream)stream : new AesStream(_password, stream);
+            return _password == null || !_useAesStream ? (Stream)stream : new AesStream(_password, stream);
         }
 
         /// <summary>

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Linq;
 using System.Collections;
 using System.Collections.Generic;
@@ -9,6 +9,24 @@ namespace LiteDB
 {
     public partial class BsonMapper
     {
+        #region Deserialization Hooks
+
+        /// <summary>
+        /// Delegate for deserialization callback.
+        /// </summary>
+        /// <param name="sender">The BsonMapper instance that triggered the deserialization.</param>
+        /// <param name="target">The target type for deserialization.</param>
+        /// <param name="value">The BsonValue to be deserialized.</param>
+        /// <returns>The deserialized BsonValue.</returns>
+        public delegate BsonValue DeserializationCallback(BsonMapper sender, Type target, BsonValue value);
+
+        /// <summary>
+        /// Gets called before deserialization of a value
+        /// </summary>
+        public DeserializationCallback? OnDeserialization { get; set; }
+
+        #endregion Deserialization Hooks
+
         #region Basic direct .NET convert types
 
         // direct bson types
@@ -78,6 +96,15 @@ namespace LiteDB
         /// </summary>
         public object Deserialize(Type type, BsonValue value)
         {
+            if (OnDeserialization is not null)
+            {
+                var result = OnDeserialization(this, type, value);
+                if (result is not null)
+                {
+                    value = result;
+                }
+            }
+
             // null value - null returns
             if (value.IsNull) return null;
 
@@ -177,13 +204,6 @@ namespace LiteDB
                         throw LiteException.DataTypeNotAssignable(type.FullName, actualType.FullName);
                     }
 
-                    // avoid use of "System.Diagnostics.Process" in object type definition
-                    // using String test to work in .netstandard 1.3
-                    if (actualType.FullName.Equals("System.Diagnostics.Process", StringComparison.OrdinalIgnoreCase))
-                    {
-                        throw LiteException.AvoidUseOfProcess();
-                    }
-
                     type = actualType;
                 }
                 // when complex type has no definition (== typeof(object)) use Dictionary<string, object> to better set values
@@ -193,6 +213,7 @@ namespace LiteDB
                 }
 
                 var entity = this.GetEntityMapper(type);
+                entity.WaitForInitialization();
 
                 // initialize CreateInstance
                 if (entity.CreateInstance == null)
@@ -308,6 +329,12 @@ namespace LiteDB
             foreach (var par in ctor.GetParameters())
             {
                 var arg = this.Deserialize(par.ParameterType, value[par.Name]);
+
+                //  if name is Id and arg is null, look for _id
+                if (arg == null && StringComparer.OrdinalIgnoreCase.Equals(par.Name, "Id") && value.TryGetValue("_id", out var id))
+                {
+                    arg = this.Deserialize(par.ParameterType, id);
+                }
 
                 args.Add(arg);
             }
