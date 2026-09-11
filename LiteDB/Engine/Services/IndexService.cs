@@ -26,6 +26,19 @@ namespace LiteDB.Engine
         public Collation Collation => _collation;
 
         /// <summary>
+        /// Validate the complete serialized index-key length before allocating index storage.
+        /// </summary>
+        public static void ValidateKey(BsonValue key)
+        {
+            var keyLength = IndexNode.GetKeyLength(key, true);
+
+            if (keyLength > MAX_INDEX_KEY_LENGTH)
+            {
+                throw LiteException.InvalidIndexKey($"Index key must be {MAX_INDEX_KEY_LENGTH} bytes or less.");
+            }
+        }
+
+        /// <summary>
         /// Create a new index and returns head page address (skip list)
         /// </summary>
         public CollectionIndex CreateIndex(string name, string expr, bool unique)
@@ -85,11 +98,10 @@ namespace LiteDB.Engine
             byte insertLevels,
             IndexNode last)
         {
-            // get a free index page for head note
-            var bytesLength = IndexNode.GetNodeLength(insertLevels, key, out var keyLength);
+            ValidateKey(key);
 
-            // test for index key maxlength
-            if (keyLength > MAX_INDEX_KEY_LENGTH) throw LiteException.InvalidIndexKey($"Index key must be less than {MAX_INDEX_KEY_LENGTH} bytes.");
+            // get a free index page for head note
+            var bytesLength = IndexNode.GetNodeLength(insertLevels, key, out _);
 
             var indexPage = _snapshot.GetFreeIndexPage(bytesLength, ref index.FreeIndexPageList);
 

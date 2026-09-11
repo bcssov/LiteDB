@@ -111,9 +111,6 @@ namespace LiteDB.Engine
             // if not found document, no updates
             if (pkNode == null) return false;
             
-            // update data storage
-            data.Update(col, pkNode.DataBlock, doc);
-            
             // get all current non-pk index nodes from this data block (slot, key, nodePosition)
             var oldKeys = indexer.GetNodeList(pkNode.NextNode)
                 .Select(x => new Tuple<byte, BsonValue, PageAddress>(x.Slot, x.Key, x.Position))
@@ -129,9 +126,13 @@ namespace LiteDB.Engine
 
                 foreach (var key in keys)
                 {
+                    IndexService.ValidateKey(key);
                     newKeys.Add(new Tuple<byte, BsonValue, string>(index.Slot, key, index.Name));
                 }
             }
+
+            // update data storage only after all replacement index keys are valid
+            data.Update(col, pkNode.DataBlock, doc);
 
             if (oldKeys.Length == 0 && newKeys.Count == 0) return true;
 

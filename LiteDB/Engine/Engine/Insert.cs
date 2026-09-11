@@ -66,23 +66,36 @@ namespace LiteDB.Engine
                 throw LiteException.InvalidDataType("_id", id);
             }
 
+            // evaluate and validate every key before storing the document
+            var indexKeys = snapshot.CollectionPage.GetCollectionIndexes()
+                .Select(index => new
+                {
+                    Index = index,
+                    Keys = index.BsonExpr.GetIndexKeys(doc, _header.Pragmas.Collation).ToArray()
+                })
+                .ToArray();
+
+            foreach (var item in indexKeys)
+            {
+                foreach (var key in item.Keys)
+                {
+                    IndexService.ValidateKey(key);
+                }
+            }
+
             // storage in data pages - returns dataBlock address
             var dataBlock = data.Insert(doc);
 
             IndexNode last = null;
 
-            // for each index, insert new IndexNode
-            foreach (var index in snapshot.CollectionPage.GetCollectionIndexes())
+            // for each index, insert all previously validated keys
+            foreach (var item in indexKeys)
             {
-                // for each index, get all keys (supports multi-key) - gets distinct values only
-                // if index are unique, get single key only
-                var keys = index.BsonExpr.GetIndexKeys(doc, _header.Pragmas.Collation);
-
                 // do a loop with all keys (multi-key supported)
-                foreach(var key in keys)
+                foreach(var key in item.Keys)
                 {
                     // insert node
-                    var node = indexer.AddNode(index, key, dataBlock, last);
+                    var node = indexer.AddNode(item.Index, key, dataBlock, last);
 
                     last = node;
                 }

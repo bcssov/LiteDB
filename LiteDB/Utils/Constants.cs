@@ -50,7 +50,7 @@ namespace LiteDB
         public const int MAX_LEVEL_LENGTH = 32;
 
         /// <summary>
-        /// Max size of a index entry - usde for string, binary, array and documents. Need fit in 1 byte length
+        /// Maximum serialized index-key size, including type and optional length bytes.
         /// </summary>
         public const int MAX_INDEX_KEY_LENGTH = 4095;
 
